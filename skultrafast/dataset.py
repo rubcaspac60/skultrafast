@@ -17,7 +17,7 @@ Tuple containing the results from an dispersion estimation.
 
 Attributes
 ----------
-correct_ds : DataSet
+correct_ds : TimeResolvedSpectra
     A dataset were we used linear interpolation to remove the dispersion.
 tn : array
     Array containing the results of the applied heuristic. 
@@ -28,13 +28,13 @@ polynomial : function
 FitExpResult = namedtuple('FitExpResult', 'lmfit_mini lmfit_res fitter')
 
 
-class DataSet:
+class TimeResolvedSpectra:
     def __init__(self, wl, t, data, err=None, name=None, freq_unit='nm',
                  disp_freq_unit=None, auto_plot=True):
         """
         Class for working with time-resolved spectra. If offers methods for
         analyzing and pre-processing the data. To visualize the data,
-        each `DataSet` object has an instance of an `DataSetPlotter` object
+        each `TimeResolvedSpectra` object has an instance of an `DataSetPlotter` object
         accessible under `plot`.
 
         Parameters
@@ -169,8 +169,8 @@ class DataSet:
 
         Returns
         -------
-        : DataSet
-            DataSet containing only the listed regions.
+        : TimeResolvedSpectra
+            TimeResolvedSpectra containing only the listed regions.
         """
         idx = np.zeros_like(self.wavelengths, dtype=np.bool)
         if freq_unit is None:
@@ -184,7 +184,7 @@ class DataSet:
             err = self.err[:, idx]
         else:
             err = None
-        return DataSet(self.wavelengths[idx], self.t, self.data[:, idx], err,
+        return TimeResolvedSpectra(self.wavelengths[idx], self.t, self.data[:, idx], err,
                        'nm', disp_freq_unit=self.disp_freq_unit)
 
     def mask_freqs(self, freq_ranges=None, invert_sel=False, freq_unit=None):
@@ -204,8 +204,8 @@ class DataSet:
 
         Returns
         -------
-        : DataSet
-            DataSet containing only the listed regions.
+        : TimeResolvedSpectra
+            TimeResolvedSpectra containing only the listed regions.
         """
         idx = np.zeros_like(self.wavelengths, dtype=np.bool)
         if freq_unit is None:
@@ -220,8 +220,7 @@ class DataSet:
             self.err.mask[:, idx] = True
         self.data = np.ma.MaskedArray(self.data)
         self.data[:, idx] = np.ma.masked
-        # self.wavelengths = np.ma.MaskedArray(self.wavelengths, idx)
-        # self.wavenumbers = np.ma.MaskedArray(self.wavenumbers, idx)
+
 
     def cut_times(self, time_ranges, invert_sel=False):
         """
@@ -235,8 +234,8 @@ class DataSet:
             Inverts the final selection.
         Returns
         -------
-        : DataSet
-            DataSet containing only the requested regions.
+        : TimeResolvedSpectra
+            TimeResolvedSpectra containing only the requested regions.
         """
         idx = np.zeros_like(self.t, dtype=np.bool)
         arr = self.t
@@ -248,7 +247,7 @@ class DataSet:
             err = self.err[idx, :]
         else:
             err = None
-        return DataSet(self.wavelengths, self.t[idx], self.data[idx, :], err)
+        return TimeResolvedSpectra(self.wavelengths, self.t[idx], self.data[idx, :], err)
 
     def mask_times(self, time_ranges, invert_sel=False):
         """
@@ -295,8 +294,8 @@ class DataSet:
 
         Returns
         -------
-        DataSet
-            Binned down `DataSet`
+        TimeResolvedSpectra
+            Binned down `TimeResolvedSpectra`
         """
         # We use the negative of the wavenumbers to make the array sorted
         if freq_unit is None:
@@ -317,8 +316,8 @@ class DataSet:
             binned_wl[i] = np.mean(arr[idx[i]:idx[i + 1]])
         if freq_unit is 'cm':
             binned_wl = - binned_wl
-        return DataSet(binned_wl, self.t, binned, freq_unit=freq_unit,
-                       disp_freq_unit=self.disp_freq_unit)
+        return TimeResolvedSpectra(binned_wl, self.t, binned, freq_unit=freq_unit,
+                                   disp_freq_unit=self.disp_freq_unit)
 
     def bin_times(self, n, start_index=0):
         """
@@ -333,8 +332,8 @@ class DataSet:
 
         Returns
         -------
-        DataSet
-            Binned down `DataSet`
+        TimeResolvedSpectra
+            Binned down `TimeResolvedSpectra`
         """
 
         out = []
@@ -348,8 +347,8 @@ class DataSet:
 
         new_data = np.array(out)
         new_t = np.array(out_t)
-        return DataSet(self.wavelengths, new_t, new_data,
-                       disp_freq_unit=self.disp_freq_unit)
+        return TimeResolvedSpectra(self.wavelengths, new_t, new_data,
+                                   disp_freq_unit=self.disp_freq_unit)
 
     def estimate_dispersion(self, heuristic='abs', heuristic_args=(1,), deg=2,
                             t_parameter=1.3):
@@ -390,7 +389,7 @@ class DataSet:
         func = np.poly1d(coefs)
         new_data = zero_finding.interpol(self, func(self.wavenumbers))
         return EstDispResult(
-            correct_ds=DataSet(self.wavelengths, self.t, new_data.data),
+            correct_ds=TimeResolvedSpectra(self.wavelengths, self.t, new_data.data),
             tn=self.t[idx], polynomial=func)
 
     def fit_exp(self, x0, fix_sigma=True, fix_t0=False, fix_last_decay=True,
@@ -436,7 +435,7 @@ class DataSet:
         fitter.alpha = ridge_alpha
         result = lm_model.leastsq()
         result_tuple = FitExpResult(lm_model, result, f)
-        self.fit_result_ = result_tuple
+        self.fit_exp_result_ = result_tuple
         return result_tuple
 
     def lft_density_map(self, taus, alpha=1e-4, ):
@@ -457,33 +456,33 @@ class DataSet:
 
         Parameters
         ----------
-        other_ds : DataSet
+        other_ds : TimeResolvedSpectra
             The dataset to merge with
 
         Returns
         -------
-        DataSet
+        TimeResolvedSpectra
             The merged dataset.
         """
 
         all_wls = np.hstack((self.wavelengths, other_ds.wavelengths))
         all_data = np.hstack((self.data, other_ds.data))
 
-        return DataSet(all_wls, self.t, all_data, freq_unit='nm',
-                       disp_freq_unit=self.disp_freq_unit)
+        return TimeResolvedSpectra(all_wls, self.t, all_data, freq_unit='nm',
+                                   disp_freq_unit=self.disp_freq_unit)
 
 class PolDataSet:
-    def __init__(self, para: DataSet, perp: DataSet):
+    def __init__(self, para: TimeResolvedSpectra, perp: TimeResolvedSpectra):
         """
         Class for working with a polazation resolved datasets. Assumes the same
         frequency and time axis for both polarisations.
 
         Parameters
         ----------
-        para : DataSet
+        para : TimeResolvedSpectra
             The dataset with parallel pump/probe pol.
-        perp : DataSet
-            The DataSet with perpendicular pump/probe
+        perp : TimeResolvedSpectra
+            The TimeResolvedSpectra with perpendicular pump/probe
 
         Attributes
         ----------
@@ -716,14 +715,14 @@ class PolDataSetPlotter(Plotter):
 class DataSetPlotter(Plotter):
     _ds_name = 'self.pol_ds.para'
 
-    def __init__(self, dataset: DataSet, disp_freq_unit='nm'):
+    def __init__(self, dataset: TimeResolvedSpectra, disp_freq_unit='nm'):
         """
-        Class which can Plot a `DataSet` using matplotlib.
+        Class which can Plot a `TimeResolvedSpectra` using matplotlib.
 
         Parameters
         ----------
-        dataset : DataSet
-            The DataSet to work with.
+        dataset : TimeResolvedSpectra
+            The TimeResolvedSpectra to work with.
         disp_freq_unit : {'nm', 'cm'} (optional)
             The default unit of the plots. To change
             the unit afterwards, set the attribute directly.
@@ -751,7 +750,7 @@ class DataSetPlotter(Plotter):
             Controls the contour-levels. If `con_step` is a float, it is used as
             the step size between two levels. If it is an array, its elements
             are the levels. If `None`, it defaults to 20 levels.
-        con_filter : None, int or `DataSet`.
+        con_filter : None, int or `TimeResolvedSpectra`.
             Since contours are strongly affected by noise, it can be prefered to
             filter the dataset before calculating the contours. If `con_filter`
             is a dataset, the data of that set will be used for the contours. If
@@ -798,7 +797,7 @@ class DataSetPlotter(Plotter):
                 neg = np.arange(0, -ds.data.min(), con_step)
                 levels = np.hstack((-neg[::-1][:-1], pos))
 
-            if isinstance(con_filter, DataSet):
+            if isinstance(con_filter, TimeResolvedSpectra):
                 data = con_filter.data
             elif con_filter is not None:  # must be int or tuple of int
                 if isinstance(con_filter, tuple):
@@ -984,6 +983,43 @@ class DataSetPlotter(Plotter):
             axs[2].plot(x, v[i])
         ph.lbl_trans(axs[1], use_symlog=True)
         self.lbl_spec(axs[2])
+
+    def das(self, ax=None, **kwargs):
+        """
+        Plot a DAS, if available.
+
+        Parameters
+        ----------
+        ax : plt.Axes or None
+            Axes to plot.
+        kwargs : dict
+            Keyword args given to the plot function
+
+        Returns
+        -------
+        Tuple of (List of Lines2D)
+        """
+        ds = self.dataset
+        if not hasattr(self.ds, 'fit_exp_result_'):
+            raise ValueError('The PolDataSet must have successfully fit the '
+                             'data first')
+        if ax is None:
+            ax = plt.gca()
+        is_nm = self.freq_unit == 'nm'
+        if is_nm:
+            ph.vis_mode()
+        else:
+            ph.ir_mode()
+        f = ds.fit_exp_result_.fitter
+        num_exp = f.num_exponentials
+        leg_text = [ph.nsf(i)+' '+ph.time_unit for i in f.last_para[-num_exp:]]
+        if max(f.last_para) > 5 * f.t.max():
+            leg_text[-1] = 'const.'
+        n = ds.wavelengths.size
+        x = ds.wavelengths if is_nm else ds.wavenumbers
+        l1 = ax.plot(self.x, f.c[:, :], **kwargs)
+        ax.legend(l1, leg_text, title='Decay\nConstants')
+        return l1
 
 
 class DataSetInteractiveViewer:

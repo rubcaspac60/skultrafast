@@ -1,6 +1,6 @@
 import numpy as np
 from astropy import stats as stats
-from skultrafast.dataset import DataSet
+from skultrafast.dataset import TimeResolvedSpectra
 import matplotlib.pyplot as plt
 
 def _add_rel_errors():
@@ -56,8 +56,8 @@ class MessPyFile:
 
         Returns
         -------
-        dict or DataSet
-            DataSet or Dict of DataSets containing the averaged datasets. If
+        dict or TimeResolvedSpectra
+            TimeResolvedSpectra or Dict of DataSets containing the averaged datasets. If
             the first delay-time are identical, they are interpreted as
             background and their mean is subtracted.
 
@@ -74,7 +74,7 @@ class MessPyFile:
         if not self.is_pol_resolved:
             data = stats.sigma_clip(sub_data,
                                     sigma=sigma, axis=-1)
-            mean = data.mean(-1)
+            mean = data.mean(-1)K
             std = data.std(-1)
             err = std / np.sqrt((~data.mask).sum(-1))
 
@@ -87,12 +87,12 @@ class MessPyFile:
 
                 if num_wls > 1:
                     for i in range(num_wls):
-                        ds = DataSet(self.wl[:, i], self.t, mean[i, ..., :],
-                                     err[i, ...], disp_freq_unit=disp_freq_unit)
+                        ds = TimeResolvedSpectra(self.wl[:, i], self.t, mean[i, ..., :],
+                                                 err[i, ...], disp_freq_unit=disp_freq_unit)
                         out[self.pol_first_scan + str(i)] = ds
                 else:
-                    out = DataSet(self.wl[:, 0], self.t, mean[0, ...],
-                                  err[0, ...], disp_freq_unit=disp_freq_unit)
+                    out = TimeResolvedSpectra(self.wl[:, 0], self.t, mean[0, ...],
+                                              err[0, ...], disp_freq_unit=disp_freq_unit)
                 return out
             else:
                 raise NotImplementedError('TODO')
@@ -118,21 +118,21 @@ class MessPyFile:
             out = {}
             for i in range(num_wls):
                 pfs = self.pol_first_scan
-                out[pfs + str(i)] = DataSet(self.wl[:, i], self.t,
-                                            mean1[i, ...], err1[i, ...],
-                                            disp_freq_unit=disp_freq_unit)
+                out[pfs + str(i)] = TimeResolvedSpectra(self.wl[:, i], self.t,
+                                                        mean1[i, ...], err1[i, ...],
+                                                        disp_freq_unit=disp_freq_unit)
                 other_pol = 'para' if pfs == 'perp' else 'perp'
-                out[other_pol + str(i)] = DataSet(self.wl[:, i], self.t,
-                                                  mean2[i, ...], err2[i, ...],
-                                                  disp_freq_unit=disp_freq_unit)
+                out[other_pol + str(i)] = TimeResolvedSpectra(self.wl[:, i], self.t,
+                                                              mean2[i, ...], err2[i, ...],
+                                                              disp_freq_unit=disp_freq_unit)
                 iso = 1/3 * out['para' + str(i)].data + 2 / 3 * out[
                     'perp' + str(i)].data
                 iso_err = np.sqrt(
                     1/3 * out['para' + str(i)].err ** 2 + 2 / 3 * out[
                         'perp' + str(i)].data ** 2)
-                out['iso' + str(i)] = DataSet(self.wl[:, i], self.t, iso,
-                                              iso_err,
-                                              disp_freq_unit=disp_freq_unit)
+                out['iso' + str(i)] = TimeResolvedSpectra(self.wl[:, i], self.t, iso,
+                                                          iso_err,
+                                                          disp_freq_unit=disp_freq_unit)
             return out
         else:
             raise NotImplementedError("Iso correction not supported yet.")

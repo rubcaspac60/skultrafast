@@ -7,10 +7,10 @@ This API documentation only shows the new API,
 which internally may still use older methods and
 classes.
 
-DataSet
+TimeResolvedSpectra
 -------
 
-.. autoclass:: dataset.DataSet
+.. autoclass:: dataset.TimeResolvedSpectra
    :members:
 
 .. autoclass:: dataset.DataSetPlotter
