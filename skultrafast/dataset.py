@@ -471,7 +471,7 @@ class TimeResolvedSpectra:
         return TimeResolvedSpectra(all_wls, self.t, all_data, freq_unit='nm',
                                    disp_freq_unit=self.disp_freq_unit)
 
-class PolDataSet:
+class PolTRSpectra:
     def __init__(self, para: TimeResolvedSpectra, perp: TimeResolvedSpectra):
         """
         Class for working with a polazation resolved datasets. Assumes the same
@@ -580,13 +580,13 @@ class Plotter:
 
 class PolDataSetPlotter(Plotter):
 
-    def __init__(self, pol_dataset : PolDataSet, disp_freq_unit='nm'):
+    def __init__(self, pol_dataset : PolTRSpectra, disp_freq_unit='nm'):
         """
         Plotting commands for a PolDataSet
 
         Parameters
         ----------
-        pol_dataset : PolDataSet
+        pol_dataset : PolTRSpectra
             The Data
         disp_freq_unit : {'nm', 'cm'} (optional)
             The default unit of the plots. To change
@@ -686,7 +686,7 @@ class PolDataSetPlotter(Plotter):
         """
         ds = self.pol_ds
         if not hasattr(self.pol_ds, 'exp_fit_result'):
-            raise ValueError('The PolDataSet must have successfully fit the '
+            raise ValueError('The PolTRSpectra must have successfully fit the '
                              'data')
         if ax is None:
             ax = plt.gca()
@@ -1001,7 +1001,7 @@ class DataSetPlotter(Plotter):
         """
         ds = self.dataset
         if not hasattr(self.ds, 'fit_exp_result_'):
-            raise ValueError('The PolDataSet must have successfully fit the '
+            raise ValueError('The PolTRSpectra must have successfully fit the '
                              'data first')
         if ax is None:
             ax = plt.gca()
