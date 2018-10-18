@@ -1,9 +1,10 @@
 import numpy as np
 from astropy import stats as stats
-from skultrafast.dataset import TimeResolvedSpectra
+from skultrafast.dataset import TimeResolvedSpectra, Plotter
 import matplotlib.pyplot as plt
 
-def _add_rel_errors():
+def _add_rel_errors(data1, err1, data2, err2):
+    #TODO Implement
     pass
 
 class MessPyFile:
@@ -43,6 +44,7 @@ class MessPyFile:
         else:
             self.valid_channel = self.wl.shape[0] > 32
 
+        self.num_cwl = self.data.shape[0]
 
 
     def average_scans(self, sigma=3, max_scan=None, disp_freq_unit=None):
@@ -79,8 +81,7 @@ class MessPyFile:
         kwargs = dict(disp_freq_unit=disp_freq_unit)
 
         if not self.is_pol_resolved:
-            data = stats.sigma_clip(sub_data,
-                                    sigma=sigma, axis=-1)
+            data = stats.sigma_clip(sub_data,   sigma=sigma, axis=-1)
             mean = data.mean(-1)
             std = data.std(-1)
             err = std / np.sqrt((~data.mask).sum(-1))
@@ -140,6 +141,7 @@ class MessPyFile:
                 out['perp' + str(i)] = perp_ds
                 iso = 1/3 * para + 2 / 3 * perp
                 out['iso' + str(i)] = TimeResolvedSpectra(wl, t, iso, **kwargs)
+            self.av_scans_ = out
             return out
         else:
             raise NotImplementedError("Iso correction not supported yet.")
@@ -162,7 +164,7 @@ class MessPyFile:
         new_wl = np.arange(-n//2, n//2)*dispersion
         self.wl = np.add.outer(center_wls, new_wl)
 
-class MessPyPlotter:
+class MessPyPlotter(Plotter):
     def __init__(self, messpyds):
         """
         Class to plot utility plots
@@ -186,6 +188,53 @@ class MessPyPlotter:
         if isinstance(out, dict):
             for i in out:
                 ds = out[i]
-                ax.plot(ds.data[:n, :].mean(0))
+                ax.plot(ds.data[:n, :].mean(0), label=i)
+            self.lbl_spec(ax)
         else:
             return
+
+    def early_region(self):
+        """
+        Plots an imshow of the early region.
+        """
+        n = self.ds.num_cwl
+        ds = self.ds
+        fig, axs = plt.subplots(1, n, figsize=(n*2.5+.5, 2.5), sharex=True,
+                                sharey=True)
+
+        if not hasattr(ds, 'av_scans_'):
+            return
+        for i in range(n):
+            d = ds.av_scans_['para'+str(i)].data
+            axs[i].imshow(d, aspect='auto')
+            axs[i].set_ylim(0, 50)
+
+
+    def compare_spec(self, t_region=(0, 4)):
+        """
+
+        Returns
+        -------
+
+        """
+        fig, ax = plt.subplots(figsize=(4, 2))
+
+        n = self.ds.num_cwl
+        ds = self.ds
+        if not hasattr(ds, 'av_scans_'):
+            return
+        for i in range(n):
+            c = 'C%d'%i
+            if 'para' + str(i) in ds.av_scans_:
+                d = ds.av_scans_['para' + str(i)].data
+                sl = slice(d.t_idx(t_region(0)),d.t_idx(t_region(0)))
+                ax.plot(d.wl, d[sl,:].mean(0), c=c)
+
+            if 'perp' + str(i) in ds.av_scans_:
+                d = ds.av_scans_['para' + str(i)].data
+                sl = slice(d.t_idx(t_region(0)),d.t_idx(t_region(0)))
+                ax.plot(d.wl, d[sl,:].mean(0), c=c)
+
+
+
+
